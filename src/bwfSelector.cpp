@@ -28,7 +28,7 @@ const char* mqtt_server = "192.168.1.79";
 // The relay connects area 1, area 2 or both as one big area
 // Boundry Wire Fence #1
 #define relay1 5  // ESP8266-EVB built in relay
-#define relay2 15
+#define relay2 3
 #define relayBoth 13
 #define presense 14 // Nodemcu D5
 
@@ -46,14 +46,15 @@ void setup() {
   Serial.println("Booting");
   // Presence sensor on Gpio14
   pinMode(presense, INPUT_PULLUP);
-  pinMode(relay1, OUTPUT);
+
   setup_wifi();
 
   delay(500);
-  //Serial.println(bstate);
 
   // Set relays depending in Hass switch
   checkHass();
+  //Serial.println(bstate);
+
   if (bstate){
     Serial.println("Switch on");
     digitalWrite(relay1, LOW);
@@ -77,11 +78,9 @@ void setup() {
   itoa (sense, buf, 10);
   client.publish(mqtt_pub_topic, buf);
 
-  // Deep sleep releases the relay!
-  //Serial.println("Going into deep sleep for 20 seconds");
-  //ESP.deepSleep(20e6); // 20e6 is 20 microseconds
-  delay(20000);
-  ESP.reset();
+  Serial.println("Going into deep sleep for 20 seconds");
+  ESP.deepSleep(20e6); // 20e6 is 20 microseconds
+
 }
 
 void loop() {
@@ -116,8 +115,8 @@ boolean checkHass(){
                   //return;
                 }
                 String state = root["state"];
-                //Serial.println("The Hass switch is: ");
-                //Serial.println(state);
+                Serial.println("The Hass switch is: ");
+                Serial.println(state);
 
                 // State is set to off at sunrise and to on when the pump runs
                 if (state=="off") {
