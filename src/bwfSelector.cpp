@@ -22,19 +22,21 @@ PubSubClient client(espClient);
 const char* server = " 192.168.1.142";  // server's address
 int port = 8123;
 const char* mqtt_server = "192.168.1.79";
+int mqtt_port = 1883;
+
+String hassSwitch="http://192.168.1.142:8123/api/states/input_boolean.bwf_selector";
 
 // Boundry Wire is separated in two areas
 // Each has two wires that connects to the lawnmowers base station
 // The relay connects area 1, area 2 or both as one big area
 // Boundry Wire Fence #1
-#define relay1 5  // ESP8266-EVB built in relay
+#define relay1 5
 #define relay2 3
-#define relayBoth 13
 #define presense 14 // Nodemcu D5
 
 // Prototypes
 void setup_wifi();
-boolean checkHass();
+void checkHass();
 void reconnect();
 
 boolean bstate;
@@ -44,50 +46,47 @@ void setup() {
   while(!Serial) { }
 
   Serial.println("Booting");
+
   // Presence sensor on Gpio14
   pinMode(presense, INPUT_PULLUP);
+  pinMode(relay1, OUTPUT);
+  pinMode(relay2, OUTPUT);
 
   setup_wifi();
-
   delay(500);
+  client.setServer(mqtt_server, mqtt_port);
+}
 
+void loop() {
+    // Check the presence sensor and send status via Mqtt
+    if (!client.connected()) {
+      reconnect();
+    }
+
+    int sense = digitalRead(presense);
+    char buf[4];
+    itoa (sense, buf, 10);
+    client.publish(mqtt_pub_topic, buf);
   // Set relays depending in Hass switch
   checkHass();
   //Serial.println(bstate);
 
   if (bstate){
-    Serial.println("Switch on");
+    Serial.println("Switch is on");
+    //Is the mower at home?
     digitalWrite(relay1, LOW);
     digitalWrite(relay2, LOW);
   }
   else {
-    Serial.println("Switch off");
+    Serial.println("Switch is off");
     digitalWrite(relay1, HIGH);
     digitalWrite(relay2, HIGH);
   }
 
-  // Check the presence sensor and send status via Mqtt
-  // Mqtt
-  client.setServer(mqtt_server, 1883);
-  if (!client.connected()) {
-    reconnect();
-  }
-
-  int sense = digitalRead(presense);
-  char buf[4];
-  itoa (sense, buf, 10);
-  client.publish(mqtt_pub_topic, buf);
-
-  Serial.println("Going into deep sleep for 20 seconds");
-  ESP.deepSleep(20e6); // 20e6 is 20 microseconds
-
+  delay (120000);
 }
 
-void loop() {
-
-}
-
-boolean checkHass(){
+void checkHass(){
   Serial.println("Connect to Hass");
 
   HTTPClient http;
@@ -97,7 +96,10 @@ boolean checkHass(){
   //{"attributes": {"friendly_name": "Bwf Selector"}, "entity_id": "input_boolean.bwf_selector",
   // "last_changed": "2017-06-27T05:06:09.208409+00:00", "last_updated":
   // "2017-06-27T05:06:09.208409+00:00", "state": "off"}
-  http.begin("http://192.168.1.142:8123/api/states/input_boolean.bwf_selector"); //HTTP
+  //http.begin("http://192.168.1.142:8123/api/states/input_boolean.bwf_selector"); //HTTP
+  http.begin(hassSwitch); //HTTP
+
+
   int httpCode = http.GET();
   if(httpCode > 0) {
        // HTTP header has been send and Server response header has been handled
@@ -131,7 +133,7 @@ boolean checkHass(){
            // Serial.println("http.errorToString(httpCode).c_str())";
         }
         http.end();
-        return bstate;
+        //return bstate;
 
 }
 
